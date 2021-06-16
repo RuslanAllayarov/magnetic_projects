@@ -1,0 +1,103 @@
+// Set geometry of modelling volume
+
+X_film := 512e-9
+Y_film := 512e-9
+Z_film := 512e-9
+
+cell_size := 2e-9
+grain_size := 80e-9
+
+N_X := trunc(X_film/cell_size)    
+N_Y := trunc(Y_film/cell_size)    
+N_Z := trunc(Z_film/cell_size)    
+
+N_PBC := 0
+randSeed(907)
+
+SetMesh(N_X, N_Y, N_Z, cell_size, cell_size, cell_size, N_PBC, N_PBC, N_PBC)
+
+// set the geometry
+
+ind := 1 
+N_i := trunc(X_film/grain_size)
+N_j := trunc(Y_film/grain_size)
+N_k := trunc(Z_film/grain_size)
+
+N_total := N_i*N_j*N_k
+
+for i:=0; i<N_i; i++{
+	for j:=0; j<N_j; j++{
+		for k:=0; k<N_k; k++{
+			defregion(ind, cuboid(grain_size, grain_size, grain_size).transl(i*grain_size-(X_film/2-grain_size/2),j*grain_size-(Y_film/2-grain_size/2),k*grain_size-(Z_film/2-grain_size/2)))
+			ind = ind + 1
+		}
+	}
+}
+
+saveas(geom, "structure.ovf")
+
+// Set material parameters
+
+Ms_hard := 1281e+3					// saturation magnetization Nd2Fe14B [A/m]
+A_hard := 0							// exchange constant Nd2Fe14B [J/m] 8e-12
+K_hard := 4.9e+6					// anisotropy constant Nd2Fe14B [J/m3]
+
+Ms_soft := 1281e+3					// saturation magnetization Fe [A/m]
+A_soft := 0							// exchange constant Fe [J/m] 22e-12
+K_soft := 4.9e+6					// anisotropy constant Fe [J/m3]
+
+ind = 1 
+for i:=0; i<N_i; i++{
+	for j:=0; j<N_j; j++{
+		for k:=0; k<N_k; k++{
+			if mod(i,2) == 0 {
+				if mod((j+k),2) == 0 {
+					Msat.setregion(ind, Ms_soft)
+					Aex.setregion(ind, A_soft)
+					Ku1.setregion(ind, K_soft)
+				} else {
+					Msat.setregion(ind, Ms_hard)
+					Aex.setregion(ind, A_hard)
+					Ku1.setregion(ind, K_hard)
+				}
+			} else {
+				if mod((j+k),2) == 0 {
+					Msat.setregion(ind, Ms_hard)
+					Aex.setregion(ind, A_hard)
+					Ku1.setregion(ind, K_hard)
+				} else {
+					Msat.setregion(ind, Ms_soft)
+					Aex.setregion(ind, A_soft)
+					Ku1.setregion(ind, K_soft)
+				}
+			}
+			th := acos(rand())
+			fi := 2*pi*rand()
+			anisU.setRegion(ind, vector(cos(fi)*sin(th), sin(fi)*sin(th), cos(th)))		
+			ind = ind + 1
+		}
+	}
+}
+
+// Set initial magnetization distribution
+
+m = uniform(1, 0, 0)
+
+// NoDemagSpins = 1
+EnableDemag = true
+
+// Set sequence for magnetic field changing
+
+Bmax  := K_hard/Ms_hard*2
+Bstep :=  Bmax/40
+MinimizerStop = 1e-6
+
+for B:=Bmax; B>=-Bmax; B-=Bstep{
+    B_ext = vector(B, 0, 0)
+    minimize()
+	//snapshot(m)
+	//saveas(m, sprint("B", B, ".ovf"))
+	tablesave()
+   	print(B_ext)
+ 	//print(m)
+}

@@ -1,0 +1,67 @@
+// Set geometry of modelling volume
+
+X_film := 900e-9
+Y_film := 900e-9
+Z_film := 3e-9                    // film thickness [m]
+
+cell_size := 3e-9                 // discretization [m]
+CB_size := 150e-9                  // chessboard period [m]
+
+N_X := trunc(X_film/cell_size)    
+N_Y := trunc(Y_film/cell_size)    
+N_Z := trunc(Z_film/cell_size)    
+
+N_PBC := 3                        // number of extra images for PBC
+
+SetMesh(N_X, N_Y, N_Z, cell_size, cell_size, cell_size, N_PBC, N_PBC, 0)
+
+// set the geometry
+
+ind := 0 
+N_i := trunc(X_film/CB_size)
+N_j := trunc(Y_film/CB_size)
+N_k := N_i*N_j
+
+for i:=0; i<N_i; i++{
+	for j:=0; j<N_j; j++{
+		defregion(ind, rect(CB_size, CB_size).transl(i*CB_size-(X_film/2-CB_size/2),j*CB_size-(Y_film/2-CB_size/2),0))
+		ind = ind + 1
+	}
+}
+
+OutputFormat = OVF2_TEXT
+saveas(regions, "chessboard_regions")
+saveas(geom, "chessboard_structure")
+
+// Set material parameters
+
+Ms := 722e3                       // saturation magnetization [A/m]
+A := 7e-12                        // exchange constant [J/m]
+K := 3.2e5                        // anisotropy constant [J/m3]
+anisU = vector(0, 0, 1)           // easy magnetization axis
+
+for i:=0; i<N_i; i++{
+	for j:=0; j<N_j; j++{
+		ext_ScaleExchange(i, j, 0.9)
+	}
+}
+
+// Set initial magnetization distribution
+
+ind = 1 
+for i:=0; i<N_i; i++{
+	for j:=0; j<N_j; j++{
+		test := Mod((i+j), 2)
+		if test == 0 {
+			m.setRegion(ind, uniform( 1, 0, 0))
+   		} else {
+    		m.setRegion(ind, uniform(-1, 0, 0))
+   		}
+		ind = ind + 1
+	}
+}
+
+snapshot(m)
+saveas(m, "structure")
+
+// Set sequence for magnetic field changing

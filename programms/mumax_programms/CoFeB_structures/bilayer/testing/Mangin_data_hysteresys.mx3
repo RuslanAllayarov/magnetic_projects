@@ -1,0 +1,250 @@
+/*
+    This program simulates MgO / CofeB / Ta / CoFeB / MgO
+    Here I will try to do it easier - scale the exchange between layers
+    They will touch
+    Material parameters from paper "Perpendicularly magnetized CoFeB multilayers with tunable interlayer exchange for synthetic ferrimagnets"
+*/
+
+// ------------START CONFIGS ----------------------------------
+
+// ------------Global configs ----------------------------------
+OutputFormat = OVF2_TEXT
+EnableDemag = true
+Multiplier := 1e-4 // для перевода Oe -> T
+AntiMultiplier := pow(10, 4) // для перевода T -> Oe
+
+
+// ------- may be they are needed ------------------------------
+RandSeed(0)
+ThermSeed(0)
+RandomMagSeed(0)
+MinimizerSamples = 20 //Number of max dM for convergence check
+MinimizerStop = 1e-7 //Stopping max dM for Minimize
+
+
+// ------------Geometry configs ----------------------------------
+Сellsize := 0.8e-9
+Th_Bot_orig := 1.1 * 1e-9
+Th_Bot_model := 0.8 * 1e-9
+Xcount := 1000
+Ycount := 1000
+Zcount := 2
+N_PBC := 0
+
+
+// ------------Material configs ----------------------------------
+Ms_top := 973e3 // A/m (previous 700e3 )
+Kanis_top := 4.8e5 // J/m^3 (previous 3e3 )
+Ms_bot := 1006e3 // A/m (previous 1400e3 )
+Kanis_bot := 5.3e5 // J/m^3 (previous 3.64e3 )
+Jex := 1.3e-11 // J/m (previous 1.3e-11 )
+RKKY := -1.1e-5 // J/m^2 (previous -1.38e-5)
+
+
+// ------------Hysteresis configs ----------------------------------
+/* 
+    range of transition fields between stable states
+    P- (1), AP- (2), AP+ (3) and P+ (4)
+    for example, Field_1_to_2 - transition field from P- state to AP- state,
+    Field_2_to_1 - transition field from AP- state to P- state
+    I set fields with a margin.
+*/
+Bmax  := 300 * Multiplier
+Bstep := 10 * Multiplier
+Field_3_to_4 := 180 * Multiplier // checked
+Field_4_to_3 := 120 * Multiplier // (or 120 * Multiplier)
+Field_2_to_3 := 120 * Multiplier // not checked
+Field_3_to_2 := -120 * Multiplier // not checked
+Field_1_to_2 := -120 * Multiplier // not checked
+Field_2_to_1 := -180 * Multiplier // not checked
+
+
+// ------------Hysteresis mode configs -----------------------------
+/* 
+    What transitions I will watch:
+    HYST_34 = true <--> AP+ <--> P+
+    HYST_23 = true <--> AP- <--> AP+
+    HYST_12 = true <--> P- <--> AP-
+*/
+HYST_34 := true
+HYST_23 := true
+HYST_12 := true
+
+
+// ------------Initial magn-on configs -----------------------------
+/* 
+    Which initial magnetisation state I will want:
+    INIT_M = 0 <--> P-;
+    INIT_M = 1 <--> AP-;
+    INIT_M = 2 <--> AP+;
+    INIT_M = 3 <--> P+;
+    INIT_M = -1 <--> RandomMag;
+*/
+INIT_M := 0
+
+
+// -------------- END CONFIGS ----------------------------------
+
+
+SetMesh(Xcount, Ycount, Zcount, Сellsize, Сellsize, Сellsize, N_PBC, N_PBC, 0)
+
+
+DefRegion(0, layer(0)) // bottom layer
+DefRegion(1, layer(1)) // top layer
+//Save(regions)
+
+
+// Top layer parameters
+Msat.SetRegion(1, Ms_top)
+AnisU.SetRegion(1, vector(0, 0, 1))
+Ku1.SetRegion(1, Kanis_top)
+Aex.SetRegion(1, Jex)
+
+// Bottom layer parameters
+Msat.SetRegion(0, Ms_bot * Th_Bot_orig / Th_Bot_model) // recalculate Ms_bottom
+AnisU.SetRegion(0, vector(0, 0, 1))
+Ku1.SetRegion(0, Kanis_bot * Th_Bot_orig / Th_Bot_model) // recalculate Kanis_bot
+Aex.SetRegion(0, Jex)
+
+
+// Initial magnetisation state
+if INIT_M == 0 {
+    m.setRegion(0, uniform(1, 1, -100)) // bottom
+    m.setRegion(1, uniform(-1, 1, -100)) // top
+} else if INIT_M == 1 {
+    m.setRegion(0, uniform(1, 1, -100)) // bottom
+    m.setRegion(1, uniform(-1, 1, 100)) // top
+} else if INIT_M == 2 {
+    m.setRegion(0, uniform(1, 1, 100)) // bottom
+    m.setRegion(1, uniform(-1, 1, -100)) // top
+} else if INIT_M == 3 {
+    m.setRegion(0, uniform(1, 1, 100)) // bottom
+    m.setRegion(1, uniform(-1, 1, 100)) // top
+} else {
+    m = RandomMag()
+}
+
+
+// RKKY interaction
+scale := (RKKY * Сellsize) / (2 * Aex.Average())
+ext_scaleExchange(0, 1, scale)
+
+
+TableAdd(B_ext)
+TableAdd(m_full)
+SaveAs(m, "m_inital")
+
+
+if (HYST_12  && HYST_23  && HYST_34 ) {
+    /* 
+        P+ <--> P-: we pass from field -Bmax to +Bmax and go back 
+    */
+    // P- -> P+
+    for B:=-Bmax; B<=Bmax; B+=Bstep{
+        B_ext = vector(0.05*B, 0.05*B, B)
+        relax()
+        tablesave()
+        B_Oe := B * AntiMultiplier
+        print("[P-->P+]:", "Field = ", B_Oe, "m_full_z = ", m_full.Comp(2))
+        SaveAs(m, sprintf("%s%3.0f%s", "ForwardScan_magn_", B_Oe, "Oe.ovf"))
+    }
+    // P+ -> P-
+    for B:=Bmax; B>=-Bmax; B-=Bstep{
+        B_ext = vector(0.05*B, 0.05*B, B)
+        relax()
+        tablesave()
+        B_Oe := B * AntiMultiplier
+        print("[P+->P-]:", "Field = ", B_Oe, "m_full_z = ", m_full.Comp(2))
+        SaveAs(m, sprintf("%s%3.0f%s", "BackwardScan_magn_", B_Oe, "Oe.ovf"))
+    }
+} else if (HYST_12 && !HYST_23  && !HYST_34 ) {
+
+    /* 
+        P- <--> AP-: we pass from field -Bmax to Field_1_to_2 and go back
+    */
+    // P- -> AP-
+    for B:=-Bmax; B<=Field_1_to_2; B+=Bstep{
+        B_ext = vector(0.1*B, 0.1*B, B)
+        relax()
+        tablesave()
+        B_Oe := B * AntiMultiplier
+        print("[P-->AP-]:", "Field = ", B_Oe, "m_full_z = ", m_full.Comp(2))
+        SaveAs(m, sprintf("%s%3.0f%s", "ForwardScan_magn_", B_Oe, "Oe.ovf"))
+    }
+    // AP- -> P-
+    for B:=Field_1_to_2; B>=-Bmax; B-=Bstep{
+        B_ext = vector(0.1*B, 0.1*B, B)
+        relax()
+        tablesave()
+        B_Oe := B * AntiMultiplier
+        print("[AP-->P-]:", "Field = ", B_Oe, "m_full_z = ", m_full.Comp(2))
+        SaveAs(m, sprintf("%s%3.0f%s", "BackwardScan_magn_", B_Oe, "Oe.ovf"))
+    }
+} else if ( !HYST_12  && HYST_23  && !HYST_34 ) {
+    /* 
+        AP- <--> AP+: we pass from field Field_3_to_2 to Field_2_to_3 and go back 
+    */
+    // AP- -> AP+
+    for B:=Field_3_to_2; B<=Field_2_to_3; B+=Bstep{
+        B_ext = vector(0.1*B, 0.1*B, B)
+        relax()
+        tablesave()
+        B_Oe := B * AntiMultiplier
+        print("[AP-->AP+]:", "Field = ", B_Oe, "m_full_z = ", m_full.Comp(2))
+        SaveAs(m, sprintf("%s%3.0f%s", "ForwardScan_magn_", B_Oe, "Oe.ovf"))
+    }
+    // AP+ -> AP-
+    for B:=Field_2_to_3; B>=Field_3_to_2; B-=Bstep{
+        B_ext = vector(0.1*B, 0.1*B, B)
+        relax()
+        tablesave()
+        B_Oe := B * AntiMultiplier
+        print("[AP+->AP-]:", "Field = ", B_Oe, "m_full_z = ", m_full.Comp(2))
+        SaveAs(m, sprintf("%s%3.0f%s", "BackwardScan_magn_", B_Oe, "Oe.ovf"))
+    }
+} else if ( !HYST_12 && !HYST_23 && HYST_34 ) {
+    /* 
+        AP+ <--> P+: we pass from field Field_4_to_3 to Bmax and go back 
+    */
+    // AP+ -> P+
+    for B:=Field_4_to_3; B<=Bmax; B+=Bstep{
+        B_ext = vector(0.1*B, 0.1*B, B)
+        relax()
+        tablesave()
+        B_Oe := B * AntiMultiplier
+        print("[AP+->P+]:", "Field = ", B_Oe, "m_full_z = ", m_full.Comp(2))
+        SaveAs(m, sprintf("%s%3.0f%s", "ForwardScan_magn_", B_Oe, "Oe.ovf"))
+    }
+    // P+ -> AP+
+    for B:=Bmax; B>=Field_4_to_3; B-=Bstep{
+        B_ext = vector(0.1*B, 0.1*B, B)
+        relax()
+        tablesave()
+        B_Oe := B * AntiMultiplier
+        print("[P+->AP+]:", "Field = ", B_Oe, "m_full_z = ", m_full.Comp(2))
+        SaveAs(m, sprintf("%s%3.0f%s", "BackwardScan_magn_", B_Oe, "Oe.ovf"))
+    }
+}
+
+
+
+// -----------------------------UNUSED COMMANDS -----------------------------
+
+
+// Соответствует P+ -> AP+ переходу
+//for B:=Bmax; B>=Bstep; B-=Bstep{
+//    B_ext = vector(0.1*B, 0.1*B, B)
+//    // внутри сделаем свой подцикл
+//	if B >= B_trans && B <= B_trans_end {
+//        print("[P+->AP+]:Сlose to the switching field")
+//        relax()
+//    } else {
+//        print("[P+->AP+]:Away from the switching field")
+//        minimize()
+//    }
+//    tablesave()
+//    B_Oe := B * AntiMultiplier
+//    print("[P+->AP+]:", "Field = ", B_Oe, "m_full_z = ", m_full.Comp(2))
+//    SaveAs(m, sprintf("%s%3.0f%s", "BackwardScan_magn_", B_Oe, "Oe.ovf"))
+//}
+//SaveAs(m, "m_negative_saturation")

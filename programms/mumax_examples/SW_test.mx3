@@ -1,0 +1,47 @@
+N := 246 
+
+N_x := 32
+N_y := 32
+N_z := 32
+	
+PBC_x := 3
+PBC_y := 3
+PBC_z := 3
+	
+cell_size := 2.0e-9
+grain_size := 16.0e-9
+
+SetGridSize(N_x, N_y, N_z)
+SetCellSize(cell_size, cell_size, cell_size)
+SetPBC(PBC_x, PBC_y, PBC_z)
+	
+ext_make3dgrains(grain_size, 0, N, Universe(), 1234567)
+
+for i:= 0; i < N; i++{ 
+	angle_FI := 2*pi*rand() 
+	angle_TH := acos(rand()) 
+	EA_x := sin(angle_TH)*sin(angle_FI)
+	EA_y := sin(angle_TH)*cos(angle_FI)
+	EA_z := cos(angle_TH)
+		
+	Msat.SetRegion(i, 1281e+3)
+	Aex.SetRegion(i, 0.0e-12)
+	Ku1.SetRegion(i, 4.9e+6)
+	AnisU.setRegion(i, vector(EA_x, EA_y, EA_z))
+}
+
+M.Set(Uniform(0.0, 0.0, 1.0))
+	
+B_max := 2*4.9e+6/1281e+3
+N_B := 51.0
+B_step := B_max/N_B
+	
+B_ext.Set(Vector(0.0, 0.0, B_max))
+TableAdd(B_ext)
+Minimize()
+	
+for B := B_max; B >= -B_max; B -= B_step{
+	B_ext.Set(Vector(0.0, 0.0, B))
+	Minimize()
+	TableSave()
+}	

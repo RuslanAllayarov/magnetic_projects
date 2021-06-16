@@ -1,0 +1,53 @@
+// Эта программа моделирует MgO/CofeB/MgO
+
+OutputFormat = OVF2_TEXT
+EnableDemag=false
+
+Xcellsize := 5e-9 // в м
+Ycellsize := 5e-9
+Zcellsize := 0.3e-9
+
+Xcount := 300 // по сути количество ячеек
+Ycount := 300
+Zcount := 3
+
+Xsize := Xcount * Xcellsize // реальный размер
+Ysize := Ycount * Ycellsize
+Zsize := Zcount * Zcellsize
+
+SetPBC(2,2,0) //периодические граничные условия
+SetGridsize(Xcount, Ycount, Zcount)
+SetCellsize(Xcellsize, Ycellsize, Zcellsize)
+
+geometryShape := Cuboid(Xsize, Ysize, Zsize) // задаем кубоид
+SetGeom(geometryShape)
+SaveAs(geom, "cuboid") // сохраняет факт принадлежности каждой ячейки к определенному региону
+
+DefRegion(1, geometryShape)
+SaveAs(regions, "OneRegion")
+Msat.SetRegion(1, 952e6)
+//tableAdd(m.Region(1))    // add average m over region 1 to table
+
+m = uniform(1, 1, 100) // начальная намагниченность
+
+// Параметры материала
+Msat.SetRegion(1, 952e6)
+AnisU.SetRegion(1, vector(0, 0, 1))
+Ku1.SetRegion(1, 7.5e6)
+Aex.SetRegion(1, 1e-11)
+alpha.Setregion(1, 0.01)
+
+m = uniform(-0.1, 0.1, 100) // начальная намагниченность по OZ
+SnapshotAs(m, "BeforeField.png")
+Save(m)
+
+// Вводим внешнее поле
+Multiplier := 0.00001 // для перевода Oe -> T
+Bx := 500
+By := 500
+Bz := 1
+B_ext = vector(Bx * Multiplier, By * Multiplier, Bz * Multiplier)
+relax() // релаксим
+Save(m) 
+Save(B_ext)
+SnapshotAs(m, "AfterField.png")

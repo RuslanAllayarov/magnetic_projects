@@ -1,0 +1,100 @@
+// Set modelling universe
+
+X_universe := 200e-9
+Y_universe := 200e-9
+Z_universe := 200e-9
+
+cell_size := 1.0e-9				// discretization [m]
+
+N_X := 200    
+N_Y := 200    
+N_Z := 200   
+
+N_PBC := 3						// number of extra images for PBC
+
+SetMesh(N_X, N_Y, N_Z, cell_size, cell_size, cell_size, N_PBC, N_PBC, N_PBC)
+
+
+// Set the geometry
+
+grain_size  := 15e-9				// [m] 16e-9
+randomSeed := 1234567
+maxRegion  := 255
+block   := Universe()
+
+ext_make3dgrains(grain_size, 0, maxRegion, block, randomSeed)
+
+save(regions)
+
+
+// Set magnetic properties
+
+Ms_NdFeB := 1448e+3					// saturation magnetization Nd2Fe14B [A/m] 1316e+3
+A_NdFeB := 8e-12					// exchange constant Nd2Fe14B [J/m]
+K_NdFeB := 9e+6						// anisotropy constant Nd2Fe14B [J/m3] 5.1e+6
+
+Fe_phase := 0.4						// fraction of Fe phase [-] 0.05
+
+Ms_Fe := 1711e+3					// saturation magnetization Fe [A/m]
+A_Fe := 22e-12						// exchange constant Fe [J/m]
+
+for a := 0; a < N_X; a++{
+	for b := 0; b < N_Y; b++{
+		for c := 0; c < N_Z; c++{
+			if rand() <= 0.0 {
+				DefRegionCell(255, a, b, c)
+			}
+		}
+	}
+}
+
+Msat.setregion(255, Ms_NdFeB*0.1)
+
+for i:= 0; i < maxRegion; i++{ 
+
+	if rand() <= Fe_phase {
+		Msat.setregion(i, Ms_Fe)
+		Aex.setregion(i, A_Fe)
+	} else {
+		angle_FI := 2*pi*rand() 
+		angle_TH := acos(rand()) 
+		X_EA := sin(angle_TH)*sin(angle_FI)
+		Y_EA := sin(angle_TH)*cos(angle_FI)
+		Z_EA := cos(angle_TH)
+		anisU.setRegion(i, vector(X_EA, Y_EA, Z_EA))
+		
+		Ku1.setregion(i, K_NdFeB)
+		Msat.setregion(i, Ms_NdFeB)
+		Aex.setregion(i, A_NdFeB)
+	}	
+	
+    print(i)
+}
+
+for i := 0; i < maxRegion; i++{
+ 	for j := i+1; j < maxRegion; j++{
+ 		ext_ScaleExchange(i, j, 0.4) // 0.5
+ 	}
+}
+
+// Set initial magnetization distribution
+
+m = uniform(1, 0, 0)
+
+// Set sequence for magnetic field changing
+
+//Bmax  := K_NdFeB/Ms_NdFeB*2
+Bmax  := 6.0
+Bstep :=  Bmax/30
+MinimizerStop = 1e-6
+TableAdd(B_ext)
+
+for B:=Bmax; B>=-Bmax; B-=Bstep{
+    B_ext = vector(B, 0, 0)
+    minimize()
+	snapshot(m)
+	saveas(m, sprint("B", B, ".ovf"))
+	tablesave()
+   	print(B_ext)
+ 	//print(m)
+}

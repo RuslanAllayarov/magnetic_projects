@@ -1,0 +1,33 @@
+######## USER IGNORE ###########
+# ignore .txt, .csv files with data
+*.csv
+*.txt
+*.pptx
+*.doc
+*.docx
+# ignore pictures
+*.jpg
+*.png
+# ignore Jupyter notebooks
+*.ipynb
+*.ipynb_checkpoints
+# ignore files with TEMP in name
+*TEMP*
+# ignore Comsol
+Comsol/
+# ignore testings
+testings/
+
+# ignore mumax output
+*.out/
+*.ovf
+
+
+###### SYSTEM IGNORE #######
+# ignore logs
+logs
+*.log
+# ignore env files
+*.env
+# ignore IDE specific files
+.vscode/

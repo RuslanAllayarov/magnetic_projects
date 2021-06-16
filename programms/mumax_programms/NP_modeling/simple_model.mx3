@@ -1,0 +1,27 @@
+// Здесь попробую рассчитать магнитное поле, создаваемое прямоугольной наночастицей
+// Пока опираюсь на обсуждение (https://groups.google.com/g/mumax2/c/6sLIizSu_6k/m/F0xI_BiLCAAJ)
+
+
+Сellsize := 0.8e-9
+
+// количества ячеек в моделировании
+Xcount := 1000
+Ycount := 1000
+Zcount := 2
+N_PBC := 0						// number of extra images for PBC
+
+SetMesh(Xcount, Ycount, Zcount, Сellsize, Сellsize, Сellsize, N_PBC, N_PBC, 0)
+
+func add(x int, y int) int {
+	return x + y
+}
+
+
+// параметры наночастицы
+Msat  = 800e3
+Aex   = 13e-12
+
+setgeom(cuboid(20e-9,20e-9,20e-9))
+m = uniform(0,0,1)
+
+SaveAs(B_demag, "Field_inital")

@@ -1,0 +1,48 @@
+// Set geometry of modelling volume
+
+cell_size := 1e-9		// discretization [m]
+
+N_X := 160  
+N_Y := 138 
+N_Z := 50   
+
+N_PBC := 3				// number of extra images for PBC
+
+SetMesh(N_X, N_Y, N_Z, cell_size, cell_size, cell_size, N_PBC, N_PBC, 0)
+
+Ms_col := 1400e3		// columnar phase
+A_col := 10e-12
+Ms_int := 700e3			// intercolumnar phase
+A_int := 1e-12
+
+regions.LoadFile("LaCo_160_138_50_OOMMF")
+
+Msat.setregion(1, Ms_col)
+Aex.setregion(1, A_col)
+Ku1.setregion(1, 2e3)
+anisU.setRegion(1, vector(0, 0, 1))		
+
+Msat.setregion(0, Ms_int)
+Aex.setregion(0, A_int)
+
+ext_ScaleExchange(0, 1, 0.15)
+
+m = uniform(1,0.1,0)
+
+//minimize()
+//saveas(m, sprint("magnetization.ovf"))
+
+
+Bmax  := 0.05
+Bstep :=  Bmax/20
+
+for B := -Bmax; B <= Bmax; B += Bstep{
+    B_ext = vector(B, 0, 0)
+    minimize()
+	
+	snapshot(m)
+	saveas(m, sprint("B", B, ".ovf"))
+	
+	tablesave()
+   	print(B)
+}

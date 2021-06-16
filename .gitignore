@@ -1,0 +1,26 @@
+######## USER IGNORE ###########
+# ignore pictures
+*.jpg
+*.png
+# ignore Jupyter notebooks
+*.ipynb
+*.ipynb_checkpoints
+# ignore Comsol, oommf. 
+Comsol/
+Oommf/
+mumax/
+mumax_new_version/
+Muview/
+MultiVu/
+ParaView/
+Vampire/
+fitting/
+
+###### SYSTEM IGNORE #######
+# ignore logs
+logs
+*.log
+# ignore env files
+*.env
+# ignore IDE specific files
+.vscode/

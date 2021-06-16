@@ -1,0 +1,72 @@
+// Эта программа моделирует MgO/CofeB/Ta/CoFeB/MgO
+
+// Глобальные конфиги
+OutputFormat = OVF2_TEXT
+EnableDemag=false
+
+// ячейка дискретизации, в м
+XYcellsize := 5e-9
+Zcellsize := 0.3e-9
+
+// количества ячеек в моделировании
+Xcount := 300
+Ycount := 300
+Zcount := 10
+N_PBC := 0						// number of extra images for PBC
+
+SetMesh(Xcount, Ycount, Zcount, XYcellsize, XYcellsize, Zcellsize, N_PBC, N_PBC, 0)
+
+// реальные размеры
+Xsize := Xcount * XYcellsize
+Ysize := Ycount * XYcellsize
+Zsize := Zcount * Zcellsize
+
+// Geometry
+Shape_All := Cuboid(Xsize, Ysize, Zsize)
+SetGeom(Shape_All)
+SaveAs(geom, "All_layers")
+
+
+// зададим толщины слоев, в м
+Th_Top := 3 * Zcellsize
+Th_Spac := 3 * Zcellsize
+Th_Bot := 4 * Zcellsize
+
+DefRegion(1, Zrange( (-Th_Bot-Th_Spac-Th_Top)/2, (Th_Bot-Th_Spac-Th_Top)/2 )) // CoFeB, bottom layer
+DefRegion(2, Zrange( (Th_Bot-Th_Spac-Th_Top)/2, (Th_Bot+Th_Spac-Th_Top)/2 )) // Ta, spacer layer
+DefRegion(3, Zrange( (Th_Bot+Th_Spac-Th_Top)/2, (Th_Bot+Th_Spac+Th_Top)/2 )) // CoFeB, top layer
+save(regions)
+
+// Параметры материалов
+Ms_top := 700e3 // A/m
+Kanis_top := 2e3 // J/m^3
+Ms_bot := 1200e3 // A/m
+Kanis_bot := 2.5e3 // J/m^3
+Jex := 1e-11 // J/m
+Jaf := -0.6e-5 // J/m^2
+
+// Задаем параметры bottom layer
+Msat.SetRegion(1, Ms_bot)
+AnisU.SetRegion(1, vector(0, 0, 1))
+Ku1.SetRegion(1, Kanis_bot)
+Aex.SetRegion(1, Jex)
+
+// Задаем параметры spacer layer
+Msat.SetRegion(2, 0)
+Aex.SetRegion(2, 0)
+
+// Задаем параметры top layer
+Msat.SetRegion(3, Ms_top)
+AnisU.SetRegion(3, vector(0, 0, 1))
+Ku1.SetRegion(3, Kanis_top)
+Aex.SetRegion(3, Jex)
+
+// Initial M
+m.setRegion(1, uniform(1, 2, 10))
+//m.setRegion(2, uniform(1, 0, 0))
+m.setRegion(3, uniform(2, 1, -10))
+SaveAs(m, "m_inital")
+
+
+relax()
+SaveAs(m, "m_end")

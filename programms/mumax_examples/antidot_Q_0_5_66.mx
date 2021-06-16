@@ -1,0 +1,155 @@
+// set material parameters
+
+Qf := 0.5						// Q-factor [-]
+
+K1 :=  7069						// magnetic anisotropy constant [J/m3]
+A1 := 6.2e-12					// exchange constant [J/m] | Hasegawa 1975
+Ms1 := sqrt(K1/Qf/2/pi*1e7)		// saturation magnetization [A/m]
+th_dist := 5					// EA standard deviation from OZ (deg.)
+
+// set geometrical parameters
+
+H_period := 70.0e-9				// distance between holes [m]
+H_diam := H_period				// diameter of holes [m] | it will be defined further in "for" loop
+h := 30e-9						// thickness of the film [m]
+cellsize := 3e-9				// cell size [m]
+
+holesx := 4 					// number of holes along x
+holesy := 4						// number of holes along y
+
+dx := trunc(H_period/cellsize)
+dy := trunc(sqrt(3)*H_period/2/cellsize)
+Nx := dx*holesx
+Ny := dy*holesy
+Nz := trunc(h/cellsize)
+
+// set grid and cell size
+
+SetPBC(8, 8, 0)	// extra images on left and right sides
+SetGridSize(Nx, Ny, Nz)
+SetCellSize(cellsize, cellsize, cellsize)
+
+Bmax  := max(2*K1/Ms1, 4*pi*Ms1*1e-7)*1.5
+Bstep :=  Bmax/50
+angleOZ := 0*pi/180
+
+averageM := m.Comp(0).Average()
+averageM1 := m.Comp(1).Average()
+averageM2 := m.Comp(2).Average()
+
+MalongH := averageM*sin(angleOZ) + averageM2*cos(angleOZ)
+B_appl := 0.0
+TableAddVar(B_appl, "B", "T")
+TableAddVar(MalongH, "M_H", "arb.un.")
+
+// set the geometry
+for i := 0; i <= 4; i++{
+
+	if i == 0 {
+		H_diam = H_period*0.2
+    } else if i == 1 {
+		H_diam = H_period*0.5
+	} else if i == 2 {
+		H_diam = H_period*0.8
+	} else if i == 3 {
+		H_diam = H_period*0.95
+	} else {
+		H_diam = H_period*1.05}
+
+	print("H_diam = ", H_diam)
+	
+	sq := cuboid(Nx*cellsize, Ny*cellsize, Nz*cellsize)
+	hole2 := cylinder(H_diam,Nz*cellsize).repeat(dx*cellsize, dy*2*cellsize, 0)
+	hole3 := hole2.add(hole2.transl(dx/2*cellsize,dy*cellsize,0))
+	antidot := cuboid(Nx*cellsize, Ny*cellsize, H_diam).sub(hole3)
+
+	setgeom(antidot)
+	
+	for a := 0; a < Nx; a++{
+		for b := 0; b < Ny; b++{
+			for c := 0; c < Nz; c++{
+				m := randInt(254)
+				DefRegionCell(m, a, b, c)
+			}
+		}
+	}
+
+	for j := 0; j <= 254; j++{
+		Msat.setregion(j, Ms1)
+		Aex.setregion(j, A1)
+		Ku1.setregion(j, K1)
+		th := randNorm()*th_dist/180*pi
+		fi := 2*pi*rand()
+		anisU.setRegion(j, vector(sin(fi)*sin(th), cos(fi)*sin(th), cos(th)))
+	}
+
+	if i == 0 {
+		saveas(geom, sprint("Diameter_0.2/Diameter_0.2.ovf"))
+    } else if i == 1 {
+		saveas(geom, sprint("Diameter_0.5/Diameter_0.5.ovf"))
+	} else if i == 2 {
+		saveas(geom, sprint("Diameter_0.8/Diameter_0.8.ovf"))
+	} else if i == 3 {
+		saveas(geom, sprint("Diameter_0.95/Diameter_0.95.ovf"))
+	} else {
+		saveas(geom, sprint("Diameter_1.05/Diameter_1.05.ovf"))
+    }
+
+	tableprint("Diameter_", H_diam*1e9, "_nm")
+	
+	m = Uniform(0, 0.1, 1.0)
+	angleOZ = 0*pi/180	
+	
+	for B := Bmax; B >= -Bmax; B -= Bstep{
+		B_ext = vector(B*sin(angleOZ), 0, B*cos(angleOZ))
+		relax()
+		B_appl = B
+		averageM = m.Comp(0).Average()
+		averageM1 = m.Comp(1).Average()
+		averageM2 = m.Comp(2).Average()
+		MalongH = averageM*sin(angleOZ) + averageM2*cos(angleOZ)
+		tablesave()
+
+		if i == 0 {
+			saveas(m, sprint("Diameter_0.2/OOP/Diameter_0.2_H_OOP_", B, ".ovf"))
+		} else if i == 1 {
+			saveas(m, sprint("Diameter_0.5/OOP/Diameter_0.5_H_OOP_", B, ".ovf"))
+		} else if i == 2 {
+			saveas(m, sprint("Diameter_0.8/OOP/Diameter_0.8_H_OOP_", B, ".ovf"))
+		} else if i == 3 {
+			saveas(m, sprint("Diameter_0.95/OOP/Diameter_0.95_H_OOP_", B, ".ovf"))
+		} else {
+			saveas(m, sprint("Diameter_1.05/OOP/Diameter_1.05_H_OOP_", B, ".ovf"))
+		}
+		
+		print("B_OOP = (",B_ext,")")
+	}
+	
+	m = Uniform(1.0, 0.1, 0.0)	
+	angleOZ = 90*pi/180
+	
+	for B := Bmax; B >= -Bmax; B -= Bstep{
+		B_ext = vector(B*sin(angleOZ), 0, B*cos(angleOZ))
+		relax()
+		B_appl = B
+		averageM = m.Comp(0).Average()
+		averageM1 = m.Comp(1).Average()
+		averageM2 = m.Comp(2).Average()
+		MalongH = averageM*sin(angleOZ) + averageM2*cos(angleOZ)
+		tablesave()
+
+		if i == 0 {
+			saveas(m, sprint("Diameter_0.2/IP/Diameter_0.2_IP_", B, ".ovf"))
+		} else if i == 1 {
+			saveas(m, sprint("Diameter_0.5/IP/Diameter_0.5_IP_", B, ".ovf"))
+		} else if i == 2 {
+			saveas(m, sprint("Diameter_0.8/IP/Diameter_0.8_IP_", B, ".ovf"))
+		} else if i == 3 {
+			saveas(m, sprint("Diameter_0.95/IP/Diameter_0.95_IP_", B, ".ovf"))
+		} else {
+			saveas(m, sprint("Diameter_1.05/IP/Diameter_1.05_IP_", B, ".ovf"))
+		}
+		
+		print("B_IP = (",B_ext,")")
+	}
+}

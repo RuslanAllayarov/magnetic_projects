@@ -1,0 +1,83 @@
+// set material parameters
+
+Qf := 0.5						// Q-factor [-]
+
+K1 :=  7069						// magnetic anisotropy constant [J/m3]
+A1 := 6.2e-12					// exchange constant [J/m] | Hasegawa 1975
+Ms1 := sqrt(K1/Qf/2/pi*1e7)		// saturation magnetization [A/m]
+th_dist := 5					// EA standard deviation from OZ (deg.)
+
+// set geometrical parameters
+
+H_period := 75.0e-9			// distance between holes [m]
+H_diam := 60.0e-9				// diameter of holes [m]
+h := 30e-9						// thickness of the film [m]
+cellsize := 3e-9				// cell size [m]
+
+holesx := 8 					// number of holes along x
+holesy := 8						// number of holes along y
+
+dx := trunc(H_period/cellsize)
+dy := trunc(sqrt(3)*H_period/2/cellsize)
+Nx := dx*holesx
+Ny := dy*holesy
+Nz := trunc(h/cellsize)
+
+// set grid and cell size
+
+SetPBC(8, 8, 0)	// extra images on left and right sides
+SetGridSize(Nx, Ny, Nz)
+SetCellSize(cellsize, cellsize, cellsize)
+
+B_N := 40
+//Bmax  := max(2*K1/Ms1, 4*pi*Ms1*1e-7)*0.25
+Bmax  := 0.06
+Bstep :=  Bmax/B_N
+
+B_appl := 0.0
+TableAddVar(B_appl, "B", "T")
+
+sq := cuboid(Nx*cellsize, Ny*cellsize, Nz*cellsize)
+hole2 := cylinder(H_diam,Nz*cellsize).repeat(dx*cellsize, dy*2*cellsize, 0)
+hole3 := hole2.add(hole2.transl(dx/2*cellsize,dy*cellsize,0))
+antidot := cuboid(Nx*cellsize, Ny*cellsize, H_diam).sub(hole3)
+
+setgeom(antidot)
+	
+for a := 0; a < Nx; a++{
+	for b := 0; b < Ny; b++{
+		for c := 0; c < Nz; c++{
+			m := randInt(254)
+			DefRegionCell(m, a, b, c)
+		}
+	}
+}
+
+for j := 0; j <= 254; j++{
+	Msat.setregion(j, Ms1)
+	Aex.setregion(j, A1)
+	Ku1.setregion(j, K1)
+	th := randNorm()*th_dist/180*pi
+	fi := 2*pi*rand()
+	anisU.setRegion(j, vector(sin(fi)*sin(th), cos(fi)*sin(th), cos(th)))
+}
+	
+m = RandomMag()	
+B_ext = vector(0, Bmax, 0)
+relax()
+
+B_ind := 0
+	
+	for B := Bmax; B >= -Bmax; B -= Bstep{
+		B_ext = vector(0, B, 0)
+		relax()
+		B_appl = B
+		tablesave()
+		
+		saveas(m, sprint("point_",B_ind,".ovf"))
+		snapshot(m)
+		
+		B_ind = B_ind + 1
+		print("Done ",B_ind," of (",B_N*2,")")
+	}
+
