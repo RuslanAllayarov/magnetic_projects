@@ -1,0 +1,256 @@
+# MIF 2.1
+# This is file for modeling magnetization distribution
+# of CoFeB/Ta/CoFeB
+# under action of stray field of 2 NP with some moment, radius,
+# and we have external field (Hext + angle)
+
+namespace import ::tcl::mathfunc::*
+
+####################  Константы ###########################
+set pi		[expr {4*atan(1.0)}]
+set P_nuc	0		;# доли 1 гиперпараметр
+
+#################### ТОЛЬКО ЭТО МЕНЯЙ #####################
+
+set Xsize       1500e-9     ; #размер по OX [m]
+set Ysize       1500e-9     ; #размер по OY [m]
+set Xdiscr      5e-9        ; #дискретизация по OX [m]
+set Ydiscr      5e-9        ; #дискретизация по OY [m]
+set Zdiscr      0.3e-9      ; #дискретизация по OZ [m]
+
+# Усредненные параметры кластеров наночастиц
+set Mmean	287e-18     ;# Magnetic moment of particle, Am^2
+set Rmean	140e-9      ;# R particle, m
+#set Mmean      0           ;# Magnetic moment of particle, Am^2
+#set Rmean       280e-9      ;# R particle, m
+
+# Первый кластер
+set Xfirst      500e-9
+set Yfirst      500e-9
+set Mfirst      [expr {$Mmean*4.0}]
+set frac        [expr {$Mfirst / $Mmean}]
+set frac        [pow $frac 0.3333]
+set Rfirst      [expr {$Rmean * $frac}]
+
+# Второй кластер
+set Xsecond     1000e-9
+set Ysecond     1000e-9
+set Msecond     [expr {$Mmean*4.0}]
+set frac        [expr {$Msecond / $Mmean}]
+set frac        [pow $frac 0.33333]
+set Rsecond     [expr {$Rmean * $frac}]
+
+
+# Внешнее поле
+set angle       0    ;# angle = (Hext, normal)
+set Hext        90    ;# module of external field, Oe
+
+# Добавка линейная к моменту кластера от поля
+set coef        0.087208e-19    ;# переводит поле из A/m в добавку к моменту в Am^2, в m^3
+#set coef        0.0
+
+#Magnetic parameters
+set Mstop	700e3		;# A/m проверил
+set Msbot	1200e3		;# A/m проверил
+set Jaf		-0.6e-5		;# J/m^2 проверил
+set Jafbiquadro	0		;# J/m^2 биквадратичный обмен
+set Jex		1.3e-11		;# J/m гиперпараметр
+set Ktop	2e3		;# J/m^3 проверил
+set Kbot	2.5e3		;# J/m^3 проверил
+
+# Толщины слоев
+set hbottom     1.2e-9  ;# толщина нижнего слоя [м]
+set hbuffer     0.6e-9  ;# толщина промежуточного слоя [м]
+set htop        0.9e-9  ;# толщина верхнего слоя [м]
+set hadd        2.4e-9  ;# добавочное поднятие частицы над платформой [м]
+
+# Z - компоненты кластеров
+set Zfirst [ expr {$hbottom + $hbuffer + $htop + $Rfirst + $hadd} ]
+set Zsecond [ expr {$hbottom + $hbuffer + $htop + $Rsecond + $hadd} ]
+
+
+# Атлас
+Specify Oxs_MultiAtlas:atlas [subst {
+    atlas { Oxs_BoxAtlas {
+        name top
+        xrange {0 $Xsize}
+        yrange {0 $Ysize}
+        zrange {[expr {$hbottom + $hbuffer}]  [expr {$hbottom + $hbuffer + $htop}]}
+    } }
+    atlas { Oxs_BoxAtlas {
+        name spacer
+        xrange {0 $Xsize}
+        yrange {0 $Ysize}
+        zrange {$hbottom [ expr {$hbottom + $hbuffer} ]}
+    } }
+    atlas { Oxs_BoxAtlas {
+        name bottom
+        xrange {0 $Xsize}
+        yrange {0 $Ysize}
+        zrange {0 $hbottom}
+    } }
+} ]
+
+
+Specify Oxs_PeriodicRectangularMesh:mesh [subst {
+  cellsize {$Xdiscr $Ydiscr $Zdiscr}
+  atlas :atlas
+  periodic xy
+}]
+
+Specify Oxs_LinearScalarField:zheight {
+ vector {0 0 1}
+ norm   1.0
+}
+
+Specify Oxs_TwoSurfaceExchange:AF [subst {
+ sigma $Jaf
+ sigma2 $Jafbiquadro
+ surface1 {
+         atlas  :atlas
+        region  bottom
+   scalarfield  :zheight
+   scalarvalue  1.2e-9
+    scalarside  -
+ }
+ surface2 {
+         atlas  :atlas
+        region  top
+   scalarfield  :zheight
+   scalarvalue  1.8e-9
+    scalarside  +
+ }
+} ]
+
+proc FieldTwoParticles { x y z } {
+  global Rfirst Xfirst Yfirst Zfirst Rsecond Xsecond Ysecond Zsecond Mmean Rmean pi angle Hext coef
+  # переводим градусы в радианы
+  set anglerad [ expr { ($angle / 180.0) * $pi} ]
+  # multpiplier - Oe -> A/m
+  set multiplier [ expr {1000 / (4 * $pi)} ]
+  # нужно добавить линейную добавку к моменту по полю
+  set linadd [ expr { $coef*$Hext*$multiplier } ]
+  set NewMomMean [ expr {$Mmean + $linadd} ]
+
+  # Учтем вклад от первого кластера
+  set rx1 [ expr {$x - $Xfirst} ]
+  set ry1 [ expr {$y - $Yfirst} ]
+  set rz1 [ expr {$z - $Zfirst} ]
+  set currmoment1 [ expr {($NewMomMean / ($Rmean**3)) * ($Rfirst**3)} ]
+  set r1  [ expr { ($rx1)**2 + ($ry1)**2 + ($rz1)**2 } ]
+  set r1  [ expr {$r1**0.5} ]
+  set Hz1 [ expr { (1/(4*$pi))*(3*$rz1*$currmoment1*(sin($anglerad)*$ry1 + cos($anglerad)*$rz1)/($r1**5) - $currmoment1*cos($anglerad)/($r1**3)) } ]
+  set Hy1 [ expr { (1/(4*$pi))*(3*$ry1*$currmoment1*(sin($anglerad)*$ry1 + cos($anglerad)*$rz1)/($r1**5) - $currmoment1*sin($anglerad)/($r1**3)) } ]
+  set Hx1 [ expr { (1/(4*$pi))*(3*$rx1*$currmoment1*(sin($anglerad)*$ry1 + cos($anglerad)*$rz1)/($r1**5)) } ]
+
+  # Учтем вклад от второго кластера
+  set rx2 [ expr {$x - $Xsecond} ]
+  set ry2 [ expr {$y - $Ysecond} ]
+  set rz2 [ expr {$z - $Zsecond} ]
+  set currmoment2 [ expr {($NewMomMean / ($Rmean**3)) * ($Rsecond**3)} ]
+  set r2  [ expr { ($rx2)**2 + ($ry2)**2 + ($rz2)**2 } ]
+  set r2  [ expr {$r2**0.5} ]
+  set Hz2 [ expr { (1/(4*$pi))*(3*$rz2*$currmoment2*(sin($anglerad)*$ry2 + cos($anglerad)*$rz2)/($r2**5) - $currmoment2*cos($anglerad)/($r2**3)) } ]
+  set Hy2 [ expr { (1/(4*$pi))*(3*$ry2*$currmoment2*(sin($anglerad)*$ry2 + cos($anglerad)*$rz2)/($r2**5) - $currmoment2*sin($anglerad)/($r2**3)) } ]
+  set Hx2 [ expr { (1/(4*$pi))*(3*$rx2*$currmoment2*(sin($anglerad)*$ry2 + cos($anglerad)*$rz2)/($r2**5)) } ]
+
+
+  # Add external field
+  # (Hextx,Hexty,Hextz)
+  # будем считать, что поле внешнее лежит в плоскости OYZ
+  set hextx [ expr { $multiplier * 0 }  ]
+  set hexty [ expr { $multiplier * $Hext * sin($anglerad) }  ]
+  set hextz [ expr { $multiplier * $Hext * cos($anglerad) }  ]
+  set hx [ expr { $Hx1 + $Hx2 + $hextx } ]
+  set hy [ expr { $Hy1 + $Hy2 + $hexty } ]
+  set hz [ expr { $Hz1 + $Hz2 + $hextz } ]
+  return [list $hx $hy $hz]
+}
+
+
+Specify Oxs_FixedZeeman:fieldofpart [subst {
+  field { Oxs_ScriptVectorField::fieldp {
+     atlas :atlas
+     script FieldTwoParticles
+     script_args rawpt
+     }
+  }
+}]
+
+Specify Oxs_Exchange6Ngbr [ subst {
+  atlas :atlas
+  default_A $Jex
+  A {
+    spacer spacer 0
+    spacer bottom 0
+    spacer top    0
+  }
+} ]
+
+Specify Oxs_UniaxialAnisotropy [ subst {
+   K1  { Oxs_AtlasScalarField {
+      atlas :atlas
+      default_value 0
+      values {
+         top    $Ktop
+         bottom $Kbot
+      }
+   }}
+   axis { Oxs_AtlasVectorField {
+      atlas :atlas
+      default_value {0 0 1}
+      values {
+         top    {0 0 1}
+         bottom {0 0 1}
+      }
+   }}
+} ]
+
+
+proc RandomMs { x y z } {
+    global P_nuc Mstop Msbot
+    set test [expr {rand()}]
+    if { $z <= 1.2e-9 } {
+        if { $test <= $P_nuc } {
+          return [ expr {$Msbot*rand()} ]
+        } else {
+            return $Msbot
+        }
+    } else { if { $z >= 1.8e-9 } {
+          if { $test <= $P_nuc } {
+            return [ expr {$Mstop*rand()} ]
+          } else {
+              return $Mstop
+          }
+        }
+      }
+    return 0
+}
+
+Specify Oxs_CGEvolve {}
+
+#stage_iteration_limit 300
+#stopping_mxHxm 0.1
+Specify Oxs_MinDriver {
+ basename CoFeBTaCoFeB
+ evolver Oxs_CGEvolve
+ stopping_mxHxm 0.03
+ mesh :mesh
+ Ms  { Oxs_ScriptScalarField {
+      atlas :atlas
+      script {RandomMs}
+      script_args rawpt
+ }}
+ m0  { Oxs_AtlasVectorField {
+     atlas :atlas
+     norm 1.0
+     default_value {0 0 1}
+     values {
+        top     {   0   0   -1      }
+        bottom  {   0   0   1       }
+     }
+ }}
+ normalize_aveM_output 0
+ report_max_spin_angle 1
+}
+

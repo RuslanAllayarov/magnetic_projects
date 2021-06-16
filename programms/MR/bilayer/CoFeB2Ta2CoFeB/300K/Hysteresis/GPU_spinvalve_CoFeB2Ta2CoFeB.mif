@@ -1,0 +1,216 @@
+# MIF 2.1
+set pi [expr {4*atan(1.0)}]
+set mu0 [expr {4*$pi*1e-7}]
+
+######### Magnetic parameters #######
+#Ktop        3.125e3
+#Kbot        3.64e3
+#Mstop       952e3
+#Msbot       1039e3
+#Kbot	3 -> 2.05 (ужимает центральную петлю)
+#Mbot 	2000 -> 1500 (увеличивает центральнцю петлю)
+
+# Ktop 	2e3
+# Kbot	3e3
+set P_nuc	0		;# доли 1 гиперпараметр
+set Mstop	700e3		;# A/m проверил
+set Msbot	2000e3		;# A/m проверил
+set Jaf		-0.73e-5	;# J/m^2 проверил
+set Jafbiquadro	0		;# J/m^2 биквадратичный обмен
+set Jex		1.3e-11		;# J/m гиперпараметр
+set Ktop	2e3		;# J/m^3 проверил
+set Kbot	2.5e3		;# J/m^3 проверил
+
+############### Hesteresis ###################
+set Hmax 	450		;# Oe, пределы изменения поля
+############### ATLAS & MESH #################
+set Xcellsize	5	;# дискретизация вдоль X [нм]
+set Ycellsize	5	;# дискретизация вдоль Y [нм]
+set Zcellsize	0.3	;# дискретизация вдоль Z [нм]
+
+set Xcount      400	;# число ячеек вдоль оси OX
+set Ycount      400	;# число ячеек вдоль оси OY
+
+set Xcellsize [expr {$Xcellsize*1e-9}]
+set Ycellsize [expr {$Ycellsize*1e-9}]
+set Zcellsize [expr {$Zcellsize*1e-9}]
+
+
+set Xsize [expr {$Xcellsize * $Xcount}]
+set Ysize [expr {$Ycellsize * $Ycount}]
+
+Specify Oxs_MultiAtlas:atlas [subst {
+    atlas { Oxs_BoxAtlas {
+        name top
+        xrange {0 $Xsize}
+        yrange {0 $Ysize}
+        zrange {1.8e-9 2.7e-9}
+    } }
+    atlas { Oxs_BoxAtlas {
+        name spacer
+        xrange {0 $Xsize}
+        yrange {0 $Ysize}
+        zrange {1.2e-9 1.8e-9}
+    } }
+    atlas { Oxs_BoxAtlas {
+        name bottom
+        xrange {0 $Xsize}
+        yrange {0 $Ysize}
+        zrange {0 1.2e-9}
+    } }
+} ]
+
+Specify Oxs_RectangularMesh:mesh [subst {
+  cellsize {$Xcellsize $Ycellsize $Zcellsize}
+  atlas :atlas
+}]
+
+Specify Oxs_LinearScalarField:zheight {
+ vector {0 0 1}
+ norm   1.0
+}
+
+Specify Oxs_TwoSurfaceExchange:AF [subst {
+ sigma $Jaf
+ sigma2 $Jafbiquadro
+ surface1 {
+         atlas  :atlas
+        region  bottom
+   scalarfield  :zheight
+   scalarvalue  1.2e-9
+    scalarside  -
+ }
+ surface2 {
+         atlas  :atlas
+        region  top
+   scalarfield  :zheight
+   scalarvalue  1.8e-9
+    scalarside  +
+ }
+} ]
+# не трогаем
+Specify Oxs_UZeeman [subst {
+  multiplier [ expr {1000 / (4 * $pi)} ]
+  Hrange {
+     {  0 0.01 -$Hmax 1 0 -100  10  }
+     {  1 0 -100 0 2 100      10  }
+     {  0 2 100 0 0.01 $Hmax    10  }
+     {  0 0.01 $Hmax 0 2 100    10  }
+     {  0 2 100 1 0 -100      10  }
+     {  1 0 -100 0 0.01 -$Hmax  10  }
+  }
+}]
+
+Specify Oxs_Exchange6Ngbr [ subst {
+  atlas :atlas
+  default_A $Jex
+  A {
+    spacer spacer 0
+    spacer bottom 0
+    spacer top    0
+  }
+} ]
+
+
+# не трогаем
+Specify GPU_UniaxialAnisotropy_New [ subst {
+   K1  { Oxs_AtlasScalarField {
+      atlas :atlas
+      default_value 0
+      values {
+         top    $Ktop
+         bottom $Kbot
+      }
+   }}
+   axis { Oxs_AtlasVectorField {
+      atlas :atlas
+      default_value {0 0 1}
+      values {
+         top    {0 0 1}
+         bottom {0 0 1}
+      }
+   }}
+} ]
+
+proc RandomMs { x y z } {
+    global P_nuc Mstop Msbot
+    set test [expr {rand()}]
+    if { $z <= 1.2e-9 } {
+        if { $test <= $P_nuc } {
+          return [ expr {$Msbot*rand()} ]
+        } else {
+            return $Msbot
+        }
+    } else { if { $z >= 1.8e-9 } {
+          if { $test <= $P_nuc } {
+            return [ expr {$Mstop*rand()} ]
+          } else {
+              return $Mstop
+          }
+        }
+      }
+    return 0
+}
+
+Specify GPU_EulerEvolve {
+  alpha 0.6
+}
+
+Specify Oxs_GPU_TimeDriver {
+  basename CoFeBTaCoFeB
+  evolver GPU_EulerEvolve
+  mesh :mesh
+  stopping_time 0.5e-9
+  stopping_dm_dt 0.01
+  Ms { Oxs_ScriptScalarField {
+       atlas :atlas
+       script {RandomMs}
+       script_args rawpt
+  }}
+  m0 { Oxs_AtlasVectorField {
+       atlas :atlas
+       norm 1.0
+       default_value {0 0 1}
+       values {
+          top       {0 0 -1}
+          bottom    {0 0 -1}
+       }
+  }}
+  normalize_aveM_output 0
+  report_max_spin_angle 1
+}
+
+#Specify Oxs_CGEvolve {}
+
+# не трогаем
+# Ms  { Oxs_AtlasScalarField {
+#      atlas :atlas
+#      default_value 0
+#      values {
+#         top 952e3
+#         bottom 1040e3
+#      }
+# }}
+#Specify Oxs_MinDriver {
+# basename CoFeBTaCoFeB
+# evolver Oxs_CGEvolve
+# stage_iteration_limit 300
+# mesh :mesh
+# Ms  { Oxs_ScriptScalarField {
+#      atlas :atlas
+#      script {RandomMs}
+#      script_args rawpt
+# }}
+# m0  { Oxs_AtlasVectorField {
+#     atlas :atlas
+#     norm 1.0
+#     default_value {0 0 1}
+#     values {
+#        top     {0 0 -1}
+#        bottom  {0 0 -1}
+#     }
+# }}
+# normalize_aveM_output 0
+# report_max_spin_angle 1
+#}
+
