@@ -5,6 +5,8 @@
 # ignore Jupyter notebooks
 *.ipynb
 *.ipynb_checkpoints
+#ignore python support files
+__pycache__
 # ignore Comsol, oommf. 
 Comsol/
 Oommf/
