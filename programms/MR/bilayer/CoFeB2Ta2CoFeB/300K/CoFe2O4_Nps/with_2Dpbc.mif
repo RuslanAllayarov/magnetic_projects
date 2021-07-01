@@ -35,11 +35,11 @@ set Ysize [expr {$Ycellsize * $Ycount}]
 set hbottom     1.2e-9  ;# толщина нижнего слоя, нм
 set hbuffer     0.6e-9  ;# толщина промежуточного слоя, нм
 set htop        0.9e-9  ;# толщина верхнего слоя, нм
-set hadd        1e-9	;# добавочное поднятие частицы над платформой, нм
+set hadd        1.0e-9	;# добавочное поднятие частицы над платформой, нм
 
 ################ Magnetic particle ###################
-set MsatPart	300		;# saturation magnetization, emu/cm^3
-set Radius	20		;# radius of NP, nm
+set MsatPart	450		;# saturation magnetization, emu/cm^3
+set Radius	15		;# radius of NP, nm
 
 set MsatPart [expr {$MsatPart*1e3}]	;# emu/cm^3 -> A/m
 set Radius [expr {$Radius*1e-9}]	;# nm -> m
