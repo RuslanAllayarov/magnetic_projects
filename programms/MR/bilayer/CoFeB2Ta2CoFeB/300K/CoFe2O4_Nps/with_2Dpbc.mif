@@ -10,7 +10,7 @@ namespace import ::tcl::mathfunc::*
 set P_nuc	0		;# доли 1 гиперпараметр
 set Mstop	700e3		;# A/m проверил
 set Msbot	1200e3		;# A/m проверил
-set Jaf		-0.6e-5	;# J/m^2 проверил
+set Jaf		-0.6e-5		;# J/m^2 проверил
 set Jafbiquadro	0		;# J/m^2 биквадратичный обмен
 set Jex		1.3e-11		;# J/m гиперпараметр
 set Ktop	2e3		;# J/m^3 проверил
@@ -21,8 +21,8 @@ set Xcellsize   5	;# дискретизация вдоль X [нм]
 set Ycellsize   5	;# дискретизация вдоль Y [нм]
 set Zcellsize   0.3	;# дискретизация вдоль Z [нм]
 
-set Xcount      200	;# число ячеек вдоль оси ox
-set Ycount      200	;# число ячеек вдоль оси oy
+set Xcount      100	;# число ячеек вдоль оси ox
+set Ycount      100	;# число ячеек вдоль оси oy
 
 set Xcellsize [expr {$Xcellsize*1e-9}]
 set Ycellsize [expr {$Ycellsize*1e-9}]
@@ -39,7 +39,7 @@ set hadd        1e-9	;# добавочное поднятие частицы н�
 
 ################ Magnetic particle ###################
 set MsatPart	300		;# saturation magnetization, emu/cm^3
-set Radius	50		;# radius of NP, nm
+set Radius	20		;# radius of NP, nm
 
 set MsatPart [expr {$MsatPart*1e3}]	;# emu/cm^3 -> A/m
 set Radius [expr {$Radius*1e-9}]	;# nm -> m
@@ -107,8 +107,6 @@ Specify Oxs_TwoSurfaceExchange:AF [subst {
 } ]
 
 # С учетом вращения наночастицы за полем
-# и увеличения момента частицы при увеличении поля
-# работает только на состоянии AP+
 proc FieldPartRotateAcceler { x y z } {
   global MsatPart Radius Volume xpart ypart zpart pi angle Hext
   # переводим градусы в радианы
