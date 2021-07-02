@@ -1,3 +1,4 @@
+from operator import truediv
 import numpy as np
 from collections import defaultdict
 import codecs
@@ -8,8 +9,11 @@ class ParserOommf:
     SCALE_COORDS=1
     SCALE_MAGN=1
     EPSILON=np.float(1e-10)
+    BOUNDARY_MIN=0
+    BOUNDARY_MAX=1
 
-    def __init__(self, inputPath=None, outputPathTop=None, outputPathBottom=None, scaleCoords=None, scaleMagn=None):
+    def __init__(self, inputPath=None, outputPathTop=None, outputPathBottom=None, scaleCoords=None, scaleMagn=None, \
+                boundaryMin=None, boundaryMax=None):
         assert(inputPath)
         assert(outputPathTop)
         assert(outputPathBottom)
@@ -19,12 +23,12 @@ class ParserOommf:
         self.parsedDataTop = defaultdict(np.float)
         self.parsedDataBottom = defaultdict(np.float)
         self.configs = defaultdict(str)
-        self.scaleCoords = scaleCoords
-        self.scaleMagn = scaleMagn
-        if self.scaleCoords == None:
-            self.scaleCoords = self.SCALE_COORDS
-        if self.scaleMagn == None:
-            self.scaleMagn = self.SCALE_MAGN
+        self.scaleCoords = scaleCoords if (scaleCoords != None) else self.SCALE_COORDS
+        self.scaleMagn = scaleMagn if (scaleMagn != None) else self.SCALE_MAGN
+        # filters
+        self.boundaryMin = boundaryMin if (boundaryMin != None) else self.BOUNDARY_MIN
+        self.boundaryMax = boundaryMax if (boundaryMax != None) else self.BOUNDARY_MAX
+        
 
     def readConfigsFromInput(self, line):
         line = line.strip().split(':')
@@ -34,6 +38,12 @@ class ParserOommf:
             self.configs[param] = ': '.join(line[1:])
             logging.debug('[CONFIG] %s : %s', param, self.configs[param])
 
+    def isSkipUnnecessary(self, x, y):
+        '''If we want filter by coordinator's boundary'''
+        if ( (x > self.boundaryMin) & (x < self.boundaryMax) & \
+             (y > self.boundaryMin) & (y < self.boundaryMax) ):
+            return False
+        return True
 
     def readFile(self):
         with codecs.open(self.pathIn, "r", encoding='utf-8') as fin:
@@ -47,12 +57,16 @@ class ParserOommf:
                 line = line.strip().split()
                 x, y, z = list(map(np.float, line[:3]))
                 mx, my, mz = list(map(np.float, line[3:]))
+                # filter by XY boundaries
+                if (self.isSkipUnnecessary(x, y)):
+                    continue
                 self.chooseOutType(x, y, z, mx, my, mz)
 
     def chooseOutType(self, x, y, z, mx, my, mz):
         '''We need do choose of type of builted distribution:
             Mz(x, y) OR Mx(y, z) OR f(Mx, My, Mz)(x, y) OR etc.'''
-        x, y, z = self.changeOutputScale(x, y, z, Type='length')
+        #[FIXME: scale only for x, y coordinates]
+        x, y, _ = self.changeOutputScale(x, y, 0, Type='length')
         mx, my, mz = self.changeOutputScale(mx, my, mz, Type='magnetization')
         # case of BOTTOM layer
         HEIGHT_BOTTOM = np.float(self.configs['zmin']) + np.float(self.configs['zstepsize'])/2
