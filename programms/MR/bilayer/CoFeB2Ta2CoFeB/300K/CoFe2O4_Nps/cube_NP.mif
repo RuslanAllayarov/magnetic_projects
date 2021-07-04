@@ -38,6 +38,7 @@ set htop        0.9e-9  ;# толщина верхнего слоя, нм
 set hadd        0.0e-9	;# добавочное поднятие частицы над платформой, нм
 
 ################ Magnetic particle ###################
+################ DOES NOT USE      ##################
 set MsatPart	450		;# saturation magnetization, emu/cm^3
 set Radius	12		;# radius of NP, nm
 
@@ -106,46 +107,20 @@ Specify Oxs_TwoSurfaceExchange:AF [subst {
  }
 } ]
 
-# С учетом вращения наночастицы за полем
-proc FieldPartRotateAcceler { x y z } {
-  global MsatPart Radius Volume xpart ypart zpart pi angle Hext
-  # переводим градусы в радианы
-  set anglerad [ expr { ($angle / 180.0) * $pi} ]
-  set rx [ expr {$x - $xpart} ]
-  set ry [ expr {$y - $ypart} ]
-  set rz [ expr {$z - $zpart} ]
 
-  set currmoment [ expr { $MsatPart * $Volume } ]
-
-  set r  [ expr { ($rx)**2 + ($ry)**2 + ($rz)**2 } ]
-  set r  [ expr {$r**0.5} ]
-
-  set Hz [ expr { (1/(4*$pi))*(3*$rz*$currmoment*(sin($anglerad)*$ry + cos($anglerad)*$rz)/($r**5) - $currmoment*cos($anglerad)/($r**3)) } ]
-  set Hy [ expr { (1/(4*$pi))*(3*$ry*$currmoment*(sin($anglerad)*$ry + cos($anglerad)*$rz)/($r**5) - $currmoment*sin($anglerad)/($r**3)) } ]
-  set Hx [ expr { (1/(4*$pi))*(3*$rx*$currmoment*(sin($anglerad)*$ry + cos($anglerad)*$rz)/($r**5)) } ]
-
-  # Add external field
-  # (Hextx,Hexty,Hextz)
-  # будем считать, что поле внешнее лежит в плоскости OYZ
-  set multiplier [ expr {1000 / (4 * $pi)} ]	;# Oe -> A/m
-  set hextx [ expr { $multiplier * 0 }  ]
-  set hexty [ expr { $multiplier * $Hext * sin($anglerad) }  ]
-  set hextz [ expr { $multiplier * $Hext * cos($anglerad) }  ]
-  set hx [ expr { $Hx + $hextx } ]
-  set hy [ expr { $Hy + $hexty } ]
-  set hz [ expr { $Hz + $hextz } ]
-  return [list $hx $hy $hz]
+########################
+# Reading NP's field
+# field_Ms_X_R_Y.csv -> Ms = X emu/cm^3, R = Y nm
+Specify Oxs_FileVectorField:fieldofparts {
+  file inputField/field_Ms_450_R_30.csv
+  spatial_scaling {1 1 1}
+  spatial_offset  {0 0 0}
 }
 
-
-Specify Oxs_FixedZeeman:fieldofpart [subst {
-  field { Oxs_ScriptVectorField::fieldp {
-     atlas :atlas
-     script FieldPartRotateAcceler
-     script_args rawpt
-     }
-  }
-}]
+Specify Oxs_FixedZeeman:FileField {
+  field :fieldofparts
+}
+########################
 
 Specify Oxs_Exchange6Ngbr [ subst {
   atlas :atlas
