@@ -10,17 +10,21 @@ class GeneratorFieldCuboid:
     Generate magnetic field of cuboid
     Formulas are from http://www.scielo.org.mx/pdf/rmfe/v59n1/v59n1a2.pdf
     '''
-    DEFAULT_RADIUS=0 # nm
-    DEFAULT_MAGNETIZATION=0 # emu/cm3
+    DEFAULT_CUBE_EDGE_SIZE=30e-9 # diameter of NP, [m]
+    DEFAULT_MAGNETIZATION=0 # [emu/cm3]
+    DEFAULT_BOTTOM_HEIGTH=1.2e-9 # [m]
+    DEFAULT_BUFFER_HEIGHT=0.6e-9 # [m]
+    DEFAULT_TOP_HEIGHT=0.9e-9 # [m]
 
-    def __init__(self, radius=None, isCube=True, magnetization=None, axisMoment='z', \
+    def __init__(self, edgeSize=None, isCube=True, magnetization=None, axisMoment='z', hadd=None, \
                 xCell=None, yCell=None, zCell=None, \
                 xCount=None, yCount=None, zCount=None, \
                 outPath=None):
-        self.raduis = radius if (radius != None) else self.DEFAULT_RADIUS
+        self.edgeSize = edgeSize if (edgeSize != None) else self.DEFAULT_CUBE_EDGE_SIZE
         self.isItCube(isCube)
         self.magn = magnetization if (magnetization != None) else self.DEFAULT_MAGNETIZATION
         self.axisMoment=axisMoment
+        self.hadd=hadd
         self.fieldData = defaultdict(list) # [m, m, m] -> [A/m, A/m, A/m]
 
         # region's size
@@ -32,6 +36,9 @@ class GeneratorFieldCuboid:
         self.zCount = zCount
         self.makeAssert()
 
+        # calculate coordinates of NP's cluster
+        self.calculateCoordsNpsCluster()
+
         # output options
         assert(outPath)
         self.outPath = outPath
@@ -39,7 +46,26 @@ class GeneratorFieldCuboid:
 
         # convert units
         self.convertUnits()
-        
+
+    def calculateCoordsNpsCluster(self):
+        '''
+        Center of platform, near surface
+        '''
+        self.zNp = self.DEFAULT_BOTTOM_HEIGTH + self.DEFAULT_BUFFER_HEIGHT + self.DEFAULT_TOP_HEIGHT + \
+                    self.hadd + self.edgeSize/2
+        self.xNp = self.xCount * self.xCell / 2
+        self.yNp = self.yCount * self.yCell / 2
+
+    def correctCoordsByCenter(self, X, Y, Z):
+        '''
+        We need to change coord's argument:
+        F_new(X, Y, Z) = F(X-Xnp, Y-Ynp, Z-Znp)
+        '''
+        X -= self.xNp
+        Y -= self.yNp
+        Z -= self.zNp
+        return X, Y, Z
+
     def convertUnits(self):
         '''
         Convert:
@@ -59,9 +85,9 @@ class GeneratorFieldCuboid:
 
     def isItCube(self, isCube=True):
         if isCube:
-            self.a = self.raduis
-            self.b = self.raduis
-            self.c = self.raduis
+            self.a = self.edgeSize/2
+            self.b = self.edgeSize/2
+            self.c = self.edgeSize/2
     
     def F2(self, X, Y, Z):
         numerator = np.sqrt((X+self.a)**2 + (Y-self.b)**2 + (Z+self.c)**2 ) + self.b - Y
@@ -79,10 +105,12 @@ class GeneratorFieldCuboid:
         return (self.magn/(4*pi))*np.log((self.F2(-Y, X, -Z)*self.F2(Y, X, Z))/(self.F2(Y, X, -Z)*self.F2(-Y, X, Z)))
 
     def Hz(self, X, Y, Z):
-        return (self.magn/(4*pi))*( self.F1(-X, Y, Z) + self.F1(-X, Y, -Z) + self.F1(-X, -Y, Z) + self.F1(-X, -Y, -Z) + \
+        return (-self.magn/(4*pi))*( self.F1(-X, Y, Z) + self.F1(-X, Y, -Z) + self.F1(-X, -Y, Z) + self.F1(-X, -Y, -Z) + \
                 self.F1(X, Y, Z) + self.F1(X, Y, -Z) + self.F1(X, -Y, Z) + self.F1(X, -Y, -Z))
 
+
     def calcField(self, X, Y, Z):
+        X, Y, Z = self.correctCoordsByCenter(X, Y, Z)
         return [self.Hx(X, Y, Z), self.Hy(X, Y, Z), self.Hz(X, Y, Z)]
     
     def generateData(self):

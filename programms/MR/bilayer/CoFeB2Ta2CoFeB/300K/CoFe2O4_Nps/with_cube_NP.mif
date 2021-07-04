@@ -111,14 +111,14 @@ Specify Oxs_TwoSurfaceExchange:AF [subst {
 ########################
 # Reading NP's field
 # field_Ms_X_R_Y.csv -> Ms = X emu/cm^3, R = Y nm
-Specify Oxs_FileVectorField:fieldofparts {
-  file inputField/field_Ms_450_R_30.csv
+Specify Oxs_FileVectorField:fieldofcubenp {
+  file inputField/field_Ms_450_EdgeSize_24.csv
   spatial_scaling {1 1 1}
   spatial_offset  {0 0 0}
 }
 
 Specify Oxs_FixedZeeman:FileField {
-  field :fieldofparts
+  field :fieldofcubenp
 }
 ########################
 
