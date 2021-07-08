@@ -2,7 +2,7 @@ import codecs
 import logging
 from collections import defaultdict
 import numpy as np
-from mayavi.mlab import *
+from mayavi import mlab
 
 class CreatorMayavi3DPlot:
     DEFAULT_SCALE_COORDS=1
@@ -98,7 +98,10 @@ class CreatorMayavi3DPlot:
         self.filterOutputByZ(z)
         self.saveDataImpl(x, y, z, mx, my, mz)
 
+    @mlab.show
     def createMayaviPucture(self):
         '''Start Mayavi session'''
-        quiver3d(self.xData, self.yData, self.zData, self.mxData, self.myData, self.mzData)
+        mlab.quiver3d(self.xData, self.yData, self.zData, self.mxData, self.myData, self.mzData,\
+                        line_width=10, mask_points=125, scalars=self.zData,\
+                        mode='cone', colormap="plasma", scale_mode="none", scale_factor=75)
 
