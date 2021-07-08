@@ -1,3 +1,4 @@
+from numpy import argsort
 from class_generator_MagnField import GeneratorFieldCuboid
 import logging
 import argparse
@@ -14,6 +15,8 @@ def main():
     parser.add_argument('--mSat', type=float, default=300, help='saturation magnetization of NP [emu/cm^3]')
     parser.add_argument('--axisMoment', type=str, default='z', help='axis direction of magnetization')
     parser.add_argument('--hadd', type=float, default=0, help='additional lifting height of NP from platform [m]')
+    # addition field
+    parser.add_argument("--fieldAddZcomp", type=float, default=0, help="additional perpendicular field acting on platform [Oe]")
     # mesh
     parser.add_argument('--xCellSize', type=float, default=5e-9, help='X-cell"s size [m]')
     parser.add_argument('--yCellSize', type=float, default=5e-9, help='Y-cell"s size [m]')
@@ -27,6 +30,7 @@ def main():
     generator = GeneratorFieldCuboid(edgeSize=args.edgeSize, isCube=True, magnetization=args.mSat, axisMoment='z', hadd=args.hadd, \
                                     xCell=args.xCellSize, yCell=args.yCellSize, zCell=args.zCellSize, \
                                     xCount=args.xCount, yCount=args.yCount, zCount=args.zCount, \
+                                    fieldAddZcomp=args.fieldAddZcomp, \
                                     outPath=args.outFile)
     generator.generateData()
     generator.saveData()

@@ -19,6 +19,7 @@ class GeneratorFieldCuboid:
     def __init__(self, edgeSize=None, isCube=True, magnetization=None, axisMoment='z', hadd=None, \
                 xCell=None, yCell=None, zCell=None, \
                 xCount=None, yCount=None, zCount=None, \
+                fieldAddZcomp=None, \
                 outPath=None):
         self.edgeSize = edgeSize if (edgeSize != None) else self.DEFAULT_CUBE_EDGE_SIZE
         self.isItCube(isCube)
@@ -38,6 +39,9 @@ class GeneratorFieldCuboid:
 
         # calculate coordinates of NP's cluster
         self.calculateCoordsNpsCluster()
+        
+        # addition field
+        self.fieldAddZcomp = fieldAddZcomp
 
         # output options
         assert(outPath)
@@ -70,9 +74,12 @@ class GeneratorFieldCuboid:
         '''
         Convert:
         self.magn [emu/cm^3] -> [A/m]
+        self.fieldAdd [Oe] -> [A/m]
         '''
         CONVERT_MAGN=1e3
+        CONVERT_FIELD=1e3/(4*pi)
         self.magn *= CONVERT_MAGN
+        self.fieldAddZcomp *= CONVERT_FIELD
 
     def makeAssert(self):
         assert(self.xCell != None)
@@ -81,7 +88,6 @@ class GeneratorFieldCuboid:
         assert(self.xCount != None)
         assert (self.yCount != None)
         assert (self.zCount != None)
-           
 
     def isItCube(self, isCube=True):
         if isCube:
@@ -106,13 +112,12 @@ class GeneratorFieldCuboid:
 
     def Hz(self, X, Y, Z):
         return (-self.magn/(4*pi))*( self.F1(-X, Y, Z) + self.F1(-X, Y, -Z) + self.F1(-X, -Y, Z) + self.F1(-X, -Y, -Z) + \
-                self.F1(X, Y, Z) + self.F1(X, Y, -Z) + self.F1(X, -Y, Z) + self.F1(X, -Y, -Z))
-
+                self.F1(X, Y, Z) + self.F1(X, Y, -Z) + self.F1(X, -Y, Z) + self.F1(X, -Y, -Z)) + self.fieldAddZcomp
 
     def calcField(self, X, Y, Z):
         X, Y, Z = self.correctCoordsByCenter(X, Y, Z)
         return [self.Hx(X, Y, Z), self.Hy(X, Y, Z), self.Hz(X, Y, Z)]
-    
+
     def generateData(self):
         Xset = [ (1/2 + i) * self.xCell for i in range(self.xCount)]
         Yset = [ (1/2 + i) * self.yCell for i in range(self.yCount)]

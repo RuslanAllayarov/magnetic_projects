@@ -12,12 +12,13 @@ def main():
     # optional 
     parser.add_argument('--scaleCoords', type=float, default=1, help='scale parameter for output coordinates')
     parser.add_argument('--scaleMagn', type=float, default=1, help='scale parameter for output magnetization')
-    parser.add_argument('--boundaryMin', type=float, default=0, help='min of boundary"s coordinate of output')
-    parser.add_argument('--boundaryMax', type=float, default=1, help='max of boundary"s coordinate of output')
+    parser.add_argument('--boundaryMin', type=float, default=0, help='min of boundary"s coordinate of output (XY) [m]')
+    parser.add_argument('--boundaryMax', type=float, default=10000, help='max of boundary"s coordinate of output (XY) [m]')
     args = parser.parse_args()
     logging.debug('Scale arguments: scaleCoords = %f, scaleMagn = %f', args.scaleCoords, args.scaleMagn)
 
-    creator = CreatorMayavi3DPlot(inFile=args.inFile, scaleCoords=args.scaleCoords, scaleMagn=args.scaleMagn)
+    creator = CreatorMayavi3DPlot(inFile=args.inFile, scaleCoords=args.scaleCoords, scaleMagn=args.scaleMagn, \
+                                    boundaryMin=args.boundaryMin, boundaryMax=args.boundaryMax)
     creator.readOOMMFFile()
     creator.createMayaviPucture()
     logging.info("stop create")
