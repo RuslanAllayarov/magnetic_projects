@@ -1,0 +1,2 @@
+python3 ./visualProgs/make_convert_oommf2wolfram.py ./bilayer/CoFeB2Ta2CoFeB/300K/CoFe2O4_Nps/resModels/baseModel/magn15nm450Ms.txt ./visualOutput/bilayer/CoFe2O4_Nps/mzDistrTop15nm450Ms.txt ./visualOutput/bilayer/CoFe2O4_Nps/mzDistrBottom15nm450Ms.txt --scaleCoords 1e6 --scaleMagn 1e-5 --boundaryMin 200e-9 --boundaryMax 300e-9
+python3 make_generator_MagnField.py /c/Users/Руслан/modeling/magnetic_projects/programms/MR/bilayer/CoFeB2Ta2CoFeB/300K/CoFe2O4_Nps/inputField/field_Ms_450_EdgeSize_24.csv --edgeSize 24e-9 --mSat 450 --xCount 100 --yCount 100 --zCount 9
