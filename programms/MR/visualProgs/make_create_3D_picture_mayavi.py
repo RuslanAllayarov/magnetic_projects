@@ -1,3 +1,4 @@
+from matplotlib.pyplot import sca
 from class_creator_3D_picture_mayavi import CreatorMayavi3DPlot
 import argparse
 import logging
@@ -6,10 +7,8 @@ def main():
     logging.basicConfig(format='%(asctime)s %(levelname)-8s %(message)s',
                         level=logging.INFO, datefmt='%Y-%m-%d %H:%M:%S')
     logging.info("start create")
-    parser = argparse.ArgumentParser(description="convert OOMMF to Wolfram")
+    parser = argparse.ArgumentParser(description="create OOMMF magnetization's output to Mayavi 3D plot (interactively)")
     parser.add_argument('inFile', type=str, help='distribution file saved from OOMMF')
-    parser.add_argument('outFileTop', type=str, help='output file for top layer which we can use in Wolfram')
-    parser.add_argument('outFileBottom', type=str, help='output file for bottom layer which we can use in Wolfram')
     # optional 
     parser.add_argument('--scaleCoords', type=float, default=1, help='scale parameter for output coordinates')
     parser.add_argument('--scaleMagn', type=float, default=1, help='scale parameter for output magnetization')
@@ -18,11 +17,9 @@ def main():
     args = parser.parse_args()
     logging.debug('Scale arguments: scaleCoords = %f, scaleMagn = %f', args.scaleCoords, args.scaleMagn)
 
-    converter = ParserOommf(inputPath=args.inFile, outputPathTop=args.outFileTop, outputPathBottom=args.outFileBottom, \
-                            scaleCoords=args.scaleCoords, scaleMagn=args.scaleMagn, 
-                            boundaryMin=args.boundaryMin, boundaryMax=args.boundaryMax)
-    converter.readFile()
-    converter.writeToFiles()
-    logging.info("stop convert")
+    creator = CreatorMayavi3DPlot(inFile=args.inFile, scaleCoords=args.scaleCoords, scaleMagn=args.scaleMagn)
+    creator.readOOMMFFile()
+    creator.createMayaviPucture()
+    logging.info("stop create")
 
 main()
