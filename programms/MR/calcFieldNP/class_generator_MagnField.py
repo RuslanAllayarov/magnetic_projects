@@ -16,7 +16,7 @@ class GeneratorFieldCuboid:
     DEFAULT_BUFFER_HEIGHT=0.6e-9 # [m]
     DEFAULT_TOP_HEIGHT=0.9e-9 # [m]
 
-    def __init__(self, edgeSize=None, isCube=True, magnetization=None, axisMoment='z', hadd=None, \
+    def __init__(self, edgeSize=None, isCube=True, magnetization=None, magnAngle=None, hadd=None, \
                 xCell=None, yCell=None, zCell=None, \
                 xCount=None, yCount=None, zCount=None, \
                 fieldAddZcomp=None, \
@@ -24,7 +24,7 @@ class GeneratorFieldCuboid:
         self.edgeSize = edgeSize if (edgeSize != None) else self.DEFAULT_CUBE_EDGE_SIZE
         self.isItCube(isCube)
         self.magn = magnetization if (magnetization != None) else self.DEFAULT_MAGNETIZATION
-        self.axisMoment=axisMoment
+        self.magnAngle=magnAngle
         self.hadd=hadd
         self.fieldData = defaultdict(list) # [m, m, m] -> [A/m, A/m, A/m]
 
@@ -42,6 +42,7 @@ class GeneratorFieldCuboid:
         
         # addition field
         self.fieldAddZcomp = fieldAddZcomp
+
 
         # output options
         assert(outPath)
@@ -75,11 +76,15 @@ class GeneratorFieldCuboid:
         Convert:
         self.magn [emu/cm^3] -> [A/m]
         self.fieldAdd [Oe] -> [A/m]
+        self.magnAngle [deg] -> [rad]
         '''
         CONVERT_MAGN=1e3
         CONVERT_FIELD=1e3/(4*pi)
+        CONVERT_ANGLE=pi/180
         self.magn *= CONVERT_MAGN
         self.fieldAddZcomp *= CONVERT_FIELD
+        self.magnAngle *= CONVERT_ANGLE
+
 
     def makeAssert(self):
         assert(self.xCell != None)
@@ -115,8 +120,19 @@ class GeneratorFieldCuboid:
                 self.F1(X, Y, Z) + self.F1(X, Y, -Z) + self.F1(X, -Y, Z) + self.F1(X, -Y, -Z)) + self.fieldAddZcomp
 
     def calcField(self, X, Y, Z):
+        '''
+        Calculate NP's field in point (X, Y, Z)
+        Consist of two parts:
+        stage0: just recalculate coords by NP's coords
+        stage1: rotate coordinate's system
+        [FIXME] See NpCudeFieldFormulas.docs for more details
+        '''
+        # stage0 - NP's cube is not in Origin (0, 0, 0)
         X, Y, Z = self.correctCoordsByCenter(X, Y, Z)
-        return [self.Hx(X, Y, Z), self.Hy(X, Y, Z), self.Hz(X, Y, Z)]
+        # stage1 - rotation part
+        return [self.Hx(X, Y/np.cos(self.magnAngle), Z/np.cos(self.magnAngle)),
+                self.Hy(X, Y/np.cos(self.magnAngle), Z/np.cos(self.magnAngle))*np.cos(self.magnAngle), 
+                self.Hz(X, Y/np.cos(self.magnAngle), Z/np.cos(self.magnAngle))*np.cos(self.magnAngle)]
 
     def generateData(self):
         Xset = [ (1/2 + i) * self.xCell for i in range(self.xCount)]
