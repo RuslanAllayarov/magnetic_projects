@@ -130,9 +130,9 @@ class GeneratorFieldCuboid:
         # stage0 - NP's cube is not in Origin (0, 0, 0)
         X, Y, Z = self.correctCoordsByCenter(X, Y, Z)
         # stage1 - rotation part
-        return [self.Hx(X, Y/np.cos(self.magnAngle), Z/np.cos(self.magnAngle)),
-                self.Hy(X, Y/np.cos(self.magnAngle), Z/np.cos(self.magnAngle))*np.cos(self.magnAngle), 
-                self.Hz(X, Y/np.cos(self.magnAngle), Z/np.cos(self.magnAngle))*np.cos(self.magnAngle)]
+        return [self.Hx(X, Y*np.cos(self.magnAngle), Z*np.cos(self.magnAngle)),
+                self.Hy(X, Y*np.cos(self.magnAngle), Z*np.cos(self.magnAngle))*np.cos(self.magnAngle), 
+                self.Hz(X, Y*np.cos(self.magnAngle), Z*np.cos(self.magnAngle))*np.cos(self.magnAngle)]
 
     def generateData(self):
         Xset = [ (1/2 + i) * self.xCell for i in range(self.xCount)]
