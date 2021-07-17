@@ -25,8 +25,8 @@ MinimizerStop = 1e-7 //Stopping max dM for Minimize
 Сellsize := 0.8e-9
 Th_Bot_orig := 1.1 * 1e-9
 Th_Bot_model := 0.8 * 1e-9
-Xcount := 1000
-Ycount := 1000
+Xcount := 500
+Ycount := 500
 Zcount := 2
 N_PBC := 0
 
@@ -89,7 +89,7 @@ SaveAs(m, "m_inital")
 */
 // P- -> P+
 for B:=-Bmax; B<=Bmax; B+=Bstep{
-    B_ext = vector(B, 0.01*B, 0)
+    B_ext = vector(0, 0.01*B, B)
     relax()
     tablesave()
     B_Oe := B * AntiMultiplier
@@ -98,7 +98,7 @@ for B:=-Bmax; B<=Bmax; B+=Bstep{
 }
 // P+ -> P-
 for B:=Bmax; B>=-Bmax; B-=Bstep{
-    B_ext = vector(B, 0.01*B, 0)
+    B_ext = vector(0, 0.01*B, B)
     relax()
     tablesave()
     B_Oe := B * AntiMultiplier
