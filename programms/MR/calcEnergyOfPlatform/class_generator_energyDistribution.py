@@ -2,6 +2,7 @@ from collections import defaultdict
 import numpy as np
 import codecs
 from tqdm import tqdm
+import logging
 
 class GeneratorEnergyDistribution:
     '''
@@ -64,20 +65,27 @@ class GeneratorEnergyDistribution:
         fieldComponents = list(map(float, line[3:]))
         # 1 - top split
         if abs((coords[2] - self.SPLIT_TOP)) < self.EPS:
-            self.fieldOfNPDataTop[coords] = fieldComponents
+            self.fieldOfNPDataTop[tuple(coords)] = fieldComponents
+        else:
+            pass
+            #logging.info(f"[READING]: difference between z-components: from file = {coords[2]}, diff = {coords[2] - self.SPLIT_TOP}")
         # 2 - bottom split
         if abs((coords[2] - self.SPLIT_BOTTOM)) < self.EPS:
-            self.fieldOfNPDataBottom[coords] = fieldComponents        
+            self.fieldOfNPDataBottom[tuple(coords)] = fieldComponents        
 
     def readingFieldOfNps(self):
         with codecs.open(self.fieldDistrFilePath, 'r', encoding='utf-8') as fin:
             amountOfAuxiliaryInfoRows = 23
             counter = 0
             for line in fin:
-                if (counter < amountOfAuxiliaryInfoRows):
-                    pass
                 counter += 1
-                self.correctReadingInputLine(line)
+                if (counter <= amountOfAuxiliaryInfoRows):
+                    continue
+                try:
+                    self.correctReadingInputLine(line)
+                except:
+                    pass
+        logging.info(f"[READING]:count of readed rows: in top layer : {len(list(self.fieldOfNPDataTop.keys()))}, in bottom layer : {len(list(self.fieldOfNPDataBottom.keys()))}")
 
     def calculateEnergyDistribution(self):
         '''
@@ -85,7 +93,7 @@ class GeneratorEnergyDistribution:
         - output file format: X[nm] \t Y[nm] \t E(X,Y)[J/m^2]
         '''
         # FIXME: keys of fieldOfNPDataTop and fieldOfNPDataBottom are identical, may be combine them?
-        for (coordsTop, coordsBottom) in tqdm(zip(self.fieldOfNPDataTop.keys(), self.fieldOfNPDataBottom.keys())):
+        for (coordsTop, coordsBottom) in tqdm(zip(self.fieldOfNPDataTop.copy().keys(), self.fieldOfNPDataBottom.copy().keys())):
             self.energyDistrData[coordsTop[:2]] = self.calculateEnergyDensityInPoint(coordsTop, coordsBottom)
 
     def calculateEnergyDensityInPoint(self, coordsTop, coordsBottom):
@@ -123,9 +131,9 @@ class GeneratorEnergyDistribution:
         assert (self.zCount != None)
 
 
-    def makeCorrectOutputLine(self, coords, values):
+    def makeCorrectOutputLine(self, coords, value):
         '''To generate correct output line (correct to push into Wolfram Mathematica)'''
-        line = '\t'.join(list(map(str, coords))) + '\t' + '\t'.join(list(map(str, values)))
+        line = '\t'.join(list(map(str, coords))) + '\t' + str(value)
         return line
 
     def saveData(self):
