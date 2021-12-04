@@ -25,8 +25,8 @@ MinimizerStop = 1e-7 //Stopping max dM for Minimize
 Сellsize := 0.8e-9
 Th_Bot_orig := 1.1 * 1e-9
 Th_Bot_model := 0.8 * 1e-9
-Xcount := 500
-Ycount := 500
+Xcount := 1000
+Ycount := 1000
 Zcount := 2
 N_PBC := 0
 
@@ -41,8 +41,8 @@ RKKY := -1.38e-5 // J/m^2
 
 
 // ------------Hysteresis configs ----------------------------------
-Bmax  := 3000 * Multiplier
-Bstep := 100 * Multiplier
+Bmax  := 500 * Multiplier
+Bstep := 50 * Multiplier
 
 
 // -------------- END CONFIGS ----------------------------------
@@ -89,11 +89,11 @@ SaveAs(m, "m_inital")
 */
 // P- -> P+
 for B:=-Bmax; B<=Bmax; B+=Bstep{
-    B_ext = vector(0, 0.01*B, B)
+    B_ext = vector(-0.005*B, 0.01*B, B)
     relax()
     tablesave()
     B_Oe := B * AntiMultiplier
-    print("[P-->P+]:", "Field = ", B_Oe, "m_full_x = ", m_full.Comp(0))
+    print("[P-->P+]:", "Field = ", B_Oe, "m_full_z = ", m_full.Comp(2))
     SaveAs(m, sprintf("%s%3.0f%s", "ForwardScan_magn_", B_Oe, "Oe.ovf"))
 }
 // P+ -> P-
@@ -102,7 +102,7 @@ for B:=Bmax; B>=-Bmax; B-=Bstep{
     relax()
     tablesave()
     B_Oe := B * AntiMultiplier
-    print("[P+->P-]:", "Field = ", B_Oe, "m_full_x = ", m_full.Comp(0))
+    print("[P+->P-]:", "Field = ", B_Oe, "m_full_z = ", m_full.Comp(2))
     SaveAs(m, sprintf("%s%3.0f%s", "BackwardScan_magn_", B_Oe, "Oe.ovf"))
 }
 

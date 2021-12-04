@@ -1,4 +1,3 @@
-from matplotlib.pyplot import sca
 from class_creator_3D_picture_mayavi import CreatorMayavi3DPlot
 import argparse
 import logging
