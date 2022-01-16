@@ -12,7 +12,10 @@ def main():
     # NP field
     # FIXME: make calculation of field here, without import
     parser.add_argument('fieldDistrFilePath', type=str, help='input field distribution in OOMMF format')
+    # magnetization distribution from OOMMF
+    parser.add_argument('magnDistrFilePath', type=str, help='input magnetization distribution from OOMMF')
     # mesh
+    # FIXME all vars're unused
     parser.add_argument('--xCellSize', type=float, default=5e-9, help='X-cell"s size [m]')
     parser.add_argument('--yCellSize', type=float, default=5e-9, help='Y-cell"s size [m]')
     parser.add_argument('--zCellSize', type=float, default=0.3e-9, help='Z-cell"s size [m]')
@@ -20,8 +23,8 @@ def main():
     parser.add_argument('--yCount', type=int, default=100, help='Y-cell"s count')
     parser.add_argument('--zCount', type=int, default=9, help='Z-cell"s count')
     # platform parameters
-    parser.add_argument('--mTop', type=float, default=700e3, help='Saturation magnetization of top layer [A/m]')
-    parser.add_argument('--mBottom', type=float, default=1200e3, help='Saturation magnetization of bottom layer [A/m]')
+    parser.add_argument('--mTop', type=float, default=700e3, help='Saturation magnetization of top layer [A/m]') # FIXME unused var
+    parser.add_argument('--mBottom', type=float, default=1200e3, help='Saturation magnetization of bottom layer [A/m]') # FIXME unused var
     parser.add_argument('--kTop', type=float, default=2e3, help='Magnetic anisotropy constant of top layer [J/m^3]')
     parser.add_argument('--kBottom', type=float, default=2.5e3, help='Magnetic anisotropy constant of bottom layer [J/m^3]')
     parser.add_argument('--jEx', type=float, default=1.3e-11, help='Intralayer exchange constant [J/m]')
@@ -33,9 +36,11 @@ def main():
                                     xCell=args.xCellSize, yCell=args.yCellSize, zCell=args.zCellSize, \
                                     xCount=args.xCount, yCount=args.yCount, zCount=args.zCount, \
                                     fieldDistrFilePath=args.fieldDistrFilePath, \
+                                    magnDistrFilePath=args.magnDistrFilePath, \
                                     outPath=args.outFile)
     generator.readingFieldOfNps()
-    logging.info("Reading field distribution: DONE")
+    generator.readingMagnetization()
+    logging.info("Reading field and magentization distributions: DONE")
     generator.calculateEnergyDistribution()
     logging.info("Calculation energy distribution: DONE")
     generator.saveData()
