@@ -20,7 +20,8 @@ class GeneratorEnergyDistribution:
                 xCell=None, yCell=None, zCell=None, \
                 xCount=None, yCount=None, zCount=None, \
                 fieldDistrFilePath=None, magnDistrFilePath = None, \
-                outPath=None):
+                isIncludeZeeman=None, isIncludeAF=None, isIncludeAnisotropy=None, \
+                outPath=None, scaleCoeff=None, xMin=None, xMax=None, yMin=None, yMax=None):
 
         # Dict with input field distribution (top and bottom layers)
         self.fieldOfNPDataTop = defaultdict(list) # [m, m, m] -> [A/m, A/m, A/m]
@@ -55,6 +56,18 @@ class GeneratorEnergyDistribution:
         self.outPath = outPath
         self.fieldDistrFilePath = fieldDistrFilePath
         self.magnDistrFilePath = magnDistrFilePath
+        self.scaleCoeff = scaleCoeff
+        self.xMin = xMin
+        self.xMax = xMax
+        self.yMin = yMin
+        self.yMax = yMax
+
+        # enable energy contributions
+        self.isIncludeZeeman = isIncludeZeeman
+        self.isIncludeAF = isIncludeAF
+        self.isIncludeAnisotropy = isIncludeAnisotropy
+        logging.debug(f"[INIT]: isIncludeZeeman={isIncludeZeeman}, isIncludeAF={isIncludeAF}, isIncludeAnisotropy={isIncludeAnisotropy}")
+
 
         # convert units
         #self.convertUnits()
@@ -119,7 +132,7 @@ class GeneratorEnergyDistribution:
         '''
         # FIXME: keys of fieldOfNPDataTop and fieldOfNPDataBottom are identical, may be combine them?
         for (coordsTop, coordsBottom) in tqdm(zip(self.fieldOfNPDataTop.copy().keys(), self.fieldOfNPDataBottom.copy().keys())):
-            self.energyDistrData[coordsTop[:2]] = self.calculateEnergyDensityInPoint(coordsTop, coordsBottom)
+            self.energyDistrData[coordsTop[:2]] = self.calculateEnergyDensityInPoint(coordsTop, coordsBottom) * self.scaleCoeff
 
     def calculateEnergyDensityInPoint(self, coordsTop, coordsBottom):
         '''
@@ -149,7 +162,14 @@ class GeneratorEnergyDistribution:
         teta_between = np.dot(self.magnDataTop[coordsTop], self.magnDataBottom[coordsBottom]) / ( np.linalg.norm(self.magnDataTop[coordsTop]) * np.linalg.norm(self.magnDataBottom[coordsBottom]) )
         interlayerEnergyDensity = -self.jAf * np.cos(teta_between)
         # summation
-        return zeemanEnergyDensity + anisEnergyDensity + interlayerEnergyDensity
+        totalEnergyDensity = 0.
+        if (self.isIncludeZeeman > 0):
+            totalEnergyDensity += zeemanEnergyDensity
+        if (self.isIncludeAnisotropy > 0):
+            totalEnergyDensity += anisEnergyDensity
+        if (self.isIncludeAF > 0):
+            totalEnergyDensity += interlayerEnergyDensity
+        return totalEnergyDensity
 
 
     def makeAssert(self):
@@ -163,10 +183,15 @@ class GeneratorEnergyDistribution:
 
     def makeCorrectOutputLine(self, coords, value):
         '''To generate correct output line (correct to push into Wolfram Mathematica)'''
+        if not (coords[0] >= self.xMin and coords[0] <= self.xMax and coords[1] >= self.yMin and coords[1] <= self.yMax):
+            return None
+        coords = list(map(lambda el: 1e6 * el, coords)) # Convert m -> 10-6 m 
         line = '\t'.join(list(map(str, coords))) + '\t' + str(value)
         return line
 
     def saveData(self):
         with codecs.open(self.outPath, "w", encoding='utf-8') as fout:
             for k, v in self.energyDistrData.items():
-                fout.write(self.makeCorrectOutputLine(k, v) + '\n')
+                correctLine = self.makeCorrectOutputLine(k, v)
+                if (correctLine != None):
+                    fout.write(correctLine + '\n')
